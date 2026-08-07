@@ -156,6 +156,14 @@ class ShootingStar extends Asteroid {
   }
 }
 
+// ── Skins ─────────────────────────────────────────────────────────────────────
+const SKINS = [
+  { name: 'CLASICA', stroke: '#fff', flame: 'rgba(255,130,0,0.85)',      points: [[20,0],[-12,-9],[-7,0],[-12,9]] },
+  { name: 'DELTA',   stroke: '#0f0', flame: 'rgba(0,255,100,0.85)',      points: [[24,0],[10,-13],[-8,-10],[-14,0],[-8,10],[10,13]] },
+  { name: 'CAZA',    stroke: '#f0f', flame: 'rgba(255,0,200,0.85)',      points: [[20,0],[12,-4],[0,-15],[-12,-8],[-9,0],[-12,8],[0,15],[12,4]] },
+  { name: 'DARDO',   stroke: '#fc0', flame: 'rgba(255,200,0,0.85)',      points: [[22,0],[8,-5],[0,-8],[-13,0],[0,8],[8,5]] },
+];
+
 // ── Ship ──────────────────────────────────────────────────────────────────────
 class Ship {
   constructor() { this.reset(); }
@@ -220,16 +228,16 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = boosting ? '#0ff' : '#fff';
+    const skin = SKINS[skinIndex];
+    ctx.strokeStyle = boosting ? '#0ff' : skin.stroke;
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
-    // Silueta clásica: triángulo con muesca trasera
+    // Silueta definida por la skin activa
     ctx.beginPath();
-    ctx.moveTo( 20,  0);   // nariz
-    ctx.lineTo(-12, -9);   // ala izquierda
-    ctx.lineTo( -7,  0);   // muesca trasera
-    ctx.lineTo(-12,  9);   // ala derecha
+    ctx.moveTo(skin.points[0][0], skin.points[0][1]);
+    for (let i = 1; i < skin.points.length; i++)
+      ctx.lineTo(skin.points[i][0], skin.points[i][1]);
     ctx.closePath();
     ctx.stroke();
 
@@ -240,7 +248,7 @@ class Ship {
       ctx.moveTo(-8, -4);
       ctx.lineTo(-8 - len, 0);
       ctx.lineTo(-8,  4);
-      ctx.strokeStyle = boosting ? 'rgba(0,255,255,0.85)' : 'rgba(255, 130, 0, 0.85)';
+      ctx.strokeStyle = boosting ? 'rgba(0,255,255,0.85)' : skin.flame;
       ctx.stroke();
     }
 
@@ -359,6 +367,7 @@ let ship, bullets, asteroids, particles, powerUps;
 let score, lives, level;
 let state;      // 'playing' | 'dead' | 'gameover'
 let deadTimer;
+let skinIndex = 0;
 
 function spawnAsteroids(count) {
   const SAFE_DIST = 130;
@@ -437,6 +446,9 @@ function update(dt) {
     bullets.push(...ship.tryShoot());
   }
 
+  // Ciclar skin
+  if (pressed('KeyC')) skinIndex = (skinIndex + 1) % SKINS.length;
+
   ship.update(dt);
   bullets.forEach(b => b.update(dt));
   asteroids.forEach(a => a.update(dt));
@@ -496,17 +508,19 @@ function update(dt) {
 
 // ── Draw ──────────────────────────────────────────────────────────────────────
 function drawLifeIcon(x, y) {
+  const skin = SKINS[skinIndex];
+  const S = 0.45;   // escala respecto a la nave
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth   = 1.2;
+  ctx.scale(S, S);
+  ctx.strokeStyle = skin.stroke;
+  ctx.lineWidth   = 1.5;
   ctx.lineJoin    = 'round';
   ctx.beginPath();
-  ctx.moveTo( 9,  0);
-  ctx.lineTo(-6, -5);
-  ctx.lineTo(-3,  0);
-  ctx.lineTo(-6,  5);
+  ctx.moveTo(skin.points[0][0], skin.points[0][1]);
+  for (let i = 1; i < skin.points.length; i++)
+    ctx.lineTo(skin.points[i][0], skin.points[i][1]);
   ctx.closePath();
   ctx.stroke();
   ctx.restore();
@@ -536,6 +550,10 @@ function drawHUD() {
     ctx.textAlign = 'left';
     ctx.fillText(`ESCUDO ${ship.shieldTime.toFixed(1)}s`, 14, H - 34);
   }
+
+  ctx.fillStyle = SKINS[skinIndex].stroke;
+  ctx.textAlign = 'right';
+  ctx.fillText(`SKIN: ${SKINS[skinIndex].name}  [C]`, W - 14, H - 16);
 
 }
 
