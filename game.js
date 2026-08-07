@@ -170,14 +170,16 @@ class Ship {
     this.invincible    = 3;
     this.shootCooldown = 0;
     this.boostTime     = 0;
+    this.tripleShotTime = 0;
     this.dead          = false;
   }
 
   update(dt) {
     if (this.dead) return;
-    if (this.invincible    > 0) this.invincible    -= dt;
-    if (this.shootCooldown > 0) this.shootCooldown -= dt;
-    if (this.boostTime     > 0) this.boostTime     -= dt;
+    if (this.invincible     > 0) this.invincible     -= dt;
+    if (this.shootCooldown  > 0) this.shootCooldown  -= dt;
+    if (this.boostTime      > 0) this.boostTime      -= dt;
+    if (this.tripleShotTime > 0) this.tripleShotTime -= dt;
 
     const ROT    = 3.5;   // rad/s
     const THRUST = 260 * (this.boostTime > 0 ? 2 : 1);  // px/s²
@@ -202,6 +204,18 @@ class Ship {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
     const NOSE = 21;
+    // Triple shot: 3 balas alineadas una detrás de otra en la misma línea recta
+    if (this.tripleShotTime > 0) {
+      const SPACING = 7;
+      const shots = [];
+      for (let i = 0; i < 3; i++) {
+        const offset = i * SPACING;
+        const x = this.x + Math.cos(this.angle) * (NOSE - offset);
+        const y = this.y + Math.sin(this.angle) * (NOSE - offset);
+        shots.push(new Bullet(x, y, this.angle));
+      }
+      return shots;
+    }
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     return [new Bullet(ox, oy, this.angle)];
@@ -213,11 +227,12 @@ class Ship {
     if (this.invincible > 0 && Math.floor(this.invincible * 8) % 2 === 0) return;
 
     const boosting = this.boostTime > 0;
+    const triple   = this.tripleShotTime > 0;
 
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = boosting ? '#0ff' : '#fff';
+    ctx.strokeStyle = triple ? '#f0f' : boosting ? '#0ff' : '#fff';
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
 
@@ -280,14 +295,16 @@ class Particle {
   }
 }
 
-// ── Power-up (velocidad) ──────────────────────────────────────────────────────
+// ── Power-up (velocidad / triple shot) ───────────────────────────────────────
 class PowerUp {
-  constructor(x, y) {
+  constructor(x, y, type = 'speed') {
     this.x = x;
     this.y = y;
+    this.type = type;
     this.radius = 12;
     this.dead = false;
     this.phase = 0;
+    this.color = type === 'triple' ? '#f0f' : '#0ff';
     const angle = rand(0, Math.PI * 2);
     const speed = rand(20, 50);
     this.vx = Math.cos(angle) * speed;
@@ -306,7 +323,7 @@ class PowerUp {
     ctx.translate(this.x, this.y);
     ctx.rotate(this.phase * 0.5);
     ctx.scale(pulse, pulse);
-    ctx.strokeStyle = '#0ff';
+    ctx.strokeStyle = this.color;
     ctx.lineWidth   = 2;
     ctx.lineJoin    = 'round';
     ctx.beginPath();
@@ -424,8 +441,10 @@ function update(dt) {
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
         // Spawn de power-up al destruir asteroides (máx. 1 en pantalla)
-        if (powerUps.length === 0 && Math.random() < 0.12)
-          powerUps.push(new PowerUp(a.x, a.y));
+        if (powerUps.length === 0 && Math.random() < 0.12) {
+          const type = Math.random() < 0.5 ? 'speed' : 'triple';
+          powerUps.push(new PowerUp(a.x, a.y, type));
+        }
       }
     }
   }
@@ -446,8 +465,12 @@ function update(dt) {
   for (const p of powerUps) {
     if (dist(ship, p) < ship.radius + p.radius) {
       p.dead = true;
-      ship.boostTime = 5;
-      explode(p.x, p.y, 12, '#0ff');
+      if (p.type === 'triple') {
+        ship.tripleShotTime = 5;
+      } else {
+        ship.boostTime = 5;
+      }
+      explode(p.x, p.y, 12, p.color);
     }
   }
 
@@ -490,6 +513,12 @@ function drawHUD() {
     ctx.fillStyle = '#0ff';
     ctx.textAlign = 'left';
     ctx.fillText(`VELOCIDAD X2 ${ship.boostTime.toFixed(1)}s`, 14, H - 16);
+  }
+
+  if (ship.tripleShotTime > 0) {
+    ctx.fillStyle = '#f0f';
+    ctx.textAlign = 'left';
+    ctx.fillText(`TRIPLE SHOT ${ship.tripleShotTime.toFixed(1)}s`, 14, H - 40);
   }
 
 }
