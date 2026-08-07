@@ -76,6 +76,8 @@ class Asteroid {
     this.vy = Math.sin(angle) * speed;
     this.rotSpeed = rand(-1.2, 1.2);
     this.rot = rand(0, Math.PI * 2);
+    this.color = '#fff';
+    this.pointMult = 1;
 
     // Polígono irregular
     const n = randInt(8, 13);
@@ -105,7 +107,7 @@ class Asteroid {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rot);
-    ctx.strokeStyle = '#fff';
+    ctx.strokeStyle = this.color;
     ctx.lineWidth   = 1.5;
     ctx.lineJoin    = 'round';
     ctx.beginPath();
@@ -115,6 +117,41 @@ class Asteroid {
     ctx.closePath();
     ctx.stroke();
     ctx.restore();
+  }
+}
+
+// ── Asteroide estrella fugaz: más rápido, desaparece con el tiempo ───────────
+class ShootingStar extends Asteroid {
+  constructor(x, y) {
+    super(x, y, 3);
+    this.color = '#fc0';
+    this.pointMult = 2;
+    this.ttl = rand(4, 7);
+    this.trailTimer = 0;
+
+    const speed = SPEEDS[this.size] * 2.5 + rand(-15, 15);
+    const angle = rand(0, Math.PI * 2);
+    this.vx = Math.cos(angle) * speed;
+    this.vy = Math.sin(angle) * speed;
+  }
+
+  update(dt) {
+    super.update(dt);
+    this.ttl -= dt;
+    if (this.ttl <= 0) {
+      this.dead = true;
+      explode(this.x, this.y, 6, this.color);
+      return;
+    }
+    // Estela tipo cometa: partículas arrastradas en sentido contrario al movimiento
+    this.trailTimer -= dt;
+    if (this.trailTimer <= 0) {
+      this.trailTimer = 0.05;
+      const p = new Particle(this.x, this.y, this.color);
+      p.vx = -this.vx * 0.5;
+      p.vy = -this.vy * 0.5;
+      particles.push(p);
+    }
   }
 }
 
@@ -297,7 +334,7 @@ function spawnAsteroids(count) {
       x = rand(0, W);
       y = rand(0, H);
     } while (Math.hypot(x - W / 2, y - H / 2) < SAFE_DIST);
-    asteroids.push(new Asteroid(x, y, 3));
+    asteroids.push(Math.random() < 0.15 ? new ShootingStar(x, y) : new Asteroid(x, y, 3));
   }
 }
 
@@ -383,7 +420,7 @@ function update(dt) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
         a.dead = true;
-        score += POINTS[a.size];
+        score += POINTS[a.size] * a.pointMult;
         explode(a.x, a.y, a.size * 5);
         newAsteroids.push(...a.split());
         // Spawn de power-up al destruir asteroides (máx. 1 en pantalla)
